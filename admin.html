@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Administração · Ana Julya</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400&display=swap">
+<link rel="stylesheet" href="assets/style.css"></head>
+<body><div class="w">
+<header><img src="assets/logo.png" alt="Ana Julya Duarte Nail Designer" style="width:min(200px,60%)"></header>
+<div id="login" class="box"><b style="font-weight:400">Área da administradora</b><br><br>
+<input id="em" type="email" placeholder="E-mail"><input id="pw" type="password" placeholder="Senha"><button class="btn" id="lg">Entrar</button></div>
+<div id="app" hidden>
+<div style="text-align:right"><button class="btn2" id="out">Sair</button></div>
+<details class="box"><summary style="cursor:pointer;color:var(--rd)">⚙ Configurações (Pix, serviços, preços, datas e horários)</summary><div id="cfg" style="margin-top:12px"></div></details>
+<h2>Filtros</h2>
+<div class="fl"><div><small>De</small><input type="date" id="f1"></div><div><small>Até</small><input type="date" id="f2"></div>
+<div><small>Serviço</small><select id="f3"></select></div>
+<div><small>Status</small><select id="f4"><option value="">Todos</option><option>Aguardando sinal</option><option>Agendado</option><option>Realizado</option><option>Cancelado</option></select></div></div>
+<div class="cards" id="ks"></div>
+<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Agendamentos</h2><button class="btn2" id="csv">Baixar planilha (CSV)</button></div>
+<div class="tw"><table><thead><tr><th>Data</th><th>Hora</th><th>Cliente</th><th>Serviço</th><th>Valor</th><th>Sinal</th><th>Status</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script><script src="js/admin.js"></script>
+</body></html>

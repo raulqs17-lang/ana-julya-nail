@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ana Julya Duarte Nail Designer · Agendamento</title>
+<meta property="og:title" content="Ana Julya Duarte Nail Designer"><meta property="og:description" content="Agende seu horário online"><meta property="og:image" content="assets/logo.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400&display=swap">
+<link rel="stylesheet" href="assets/style.css"></head>
+<body><div class="w">
+<header><img src="assets/logo.png" alt="Ana Julya Duarte Nail Designer"></header>
+<h2>1 · Serviço</h2><div class="grid" id="svs"></div>
+<h2>2 · Data e horário</h2><input type="date" id="dt"><div class="slots" id="sls"></div>
+<h2>3 · Seus dados</h2><input id="nm" placeholder="Seu nome"><input id="wp" placeholder="WhatsApp com DDD" inputmode="tel">
+<div class="box" id="rs"></div>
+<button class="btn" id="go" style="margin-top:14px" disabled>Confirmar e pagar sinal</button>
+<div class="box" id="pix" hidden></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script><script src="js/client.js"></script>
+</body></html>
