@@ -2,21 +2,27 @@ const sb=supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY);
 const $=i=>document.getElementById(i),R=v=>"R$ "+Number(v).toFixed(2).replace(".",",");
 const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 const fd=d=>d.split("-").reverse().join("/");
+let S={},sv=[],bk=[],gal=[];
 function waMsg(x){
   const m=`❕ Resumo de seu agendamento:\n\n📅 Data: ${fd(x.date)}\n🕗 Hora: ${x.time}\n🛠️ Serviço: ${x.service_name}\n👤 Profissional: Ana Julya Duarte\n💰 Valor: ${R(x.price)}`;
-  let n=x.phone.replace(/\D/g,"");if(n.length<=11)n="55"+n;
+  let n=String(x.phone).replace(/\D/g,"");if(n.length<=11)n="55"+n;
   return "https://wa.me/"+n+"?text="+encodeURIComponent(m);
 }
-let S={},sv=[],bk=[];
 sb.auth.getSession().then(({data})=>{if(data.session)start()});
 $("lg").onclick=async()=>{const{error}=await sb.auth.signInWithPassword({email:$("em").value.trim(),password:$("pw").value});error?alert("E-mail ou senha inválidos"):start()};
 $("out").onclick=async()=>{await sb.auth.signOut();location.reload()};
-async function start(){$("login").hidden=true;$("app").hidden=false;await load();drawCfg();await loadGal();}
+async function start(){
+  $("login").hidden=true;$("app").hidden=false;
+  try{await load();drawCfg();await loadGal()}catch(e){alert("Erro ao carregar o painel: "+e.message)}
+}
+async function load(){
   const[a,b,c]=await Promise.all([sb.from("settings").select("*").eq("id",1).single(),
     sb.from("services").select("*").order("sort").order("name"),
     sb.from("bookings").select("*").order("date").order("time")]);
-  S=a.data;sv=b.data||[];bk=c.data||[];fill();draw();
-
+  S=a.data||{pix_key:"",pix_name:"",sinal:30,hours:[],closed_days:[],blocked:[]};
+  S.blocked=S.blocked||[];S.hours=S.hours||[];S.closed_days=S.closed_days||[];
+  sv=b.data||[];bk=c.data||[];fill();draw();
+}
 function fill(){const v=$("f3").value;$("f3").innerHTML='<option value="">Todos os serviços</option>'+sv.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("");$("f3").value=v}
 ["f1","f2","f3","f4"].forEach(i=>$(i).onchange=draw);
 const filtered=()=>{const a=$("f1").value,b=$("f2").value,s=$("f3").value,t=$("f4").value;
@@ -25,14 +31,18 @@ function draw(){
   const l=filtered(),sum=a=>a.reduce((t,x)=>t+Number(x.price),0),dep=a=>a.reduce((t,x)=>t+Number(x.deposit),0);
   const rec=l.filter(x=>x.status==="Realizado"),pago=l.filter(x=>["Agendado","Realizado"].includes(x.status)),ag=l.filter(x=>x.status==="Agendado");
   $("ks").innerHTML=[["Ganhos realizados",R(sum(rec))],["Sinais recebidos",R(dep(pago))],["A receber (agendados)",R(sum(ag))],["Atendimentos feitos",rec.length],["Agendamentos ativos",l.filter(x=>["Aguardando sinal","Agendado"].includes(x.status)).length]].map(k=>`<div class="k"><span>${k[0]}</span><div>${k[1]}</div></div>`).join("");
-  const act=x=>{const b=(s,t)=>`<button class="btn2" data-i="${x.id}" data-s="${s}">${t}</button> `;
-    return x.status==="Aguardando sinal"?b("Agendado","Sinal pago")+b("Cancelado","Cancelar"):x.status==="Agendado"?`<button class="btn2" data-i="${x.id}" data-wa="1">WhatsApp</button> `+b("Realizado","Realizado")+b("Cancelado","Cancelar"):""};
+  const act=x=>{
+    const b=(s,t)=>`<button class="btn2" data-i="${x.id}" data-s="${s}">${t}</button> `;
+    if(x.status==="Aguardando sinal")return b("Agendado","Sinal pago")+b("Cancelado","Cancelar");
+    if(x.status==="Agendado")return `<button class="btn2" data-i="${x.id}" data-wa="1">WhatsApp</button> `+b("Realizado","Realizado")+b("Cancelado","Cancelar");
+    return "";
+  };
   $("tb").innerHTML=l.length?l.map(x=>`<tr><td>${fd(x.date)}</td><td>${x.time}</td><td>${esc(x.client_name)}<br><small><a href="https://wa.me/55${x.phone.replace(/\D/g,"")}" target="_blank" style="color:inherit">${esc(x.phone)}</a></small></td><td>${esc(x.service_name)}</td><td>${R(x.price)}</td><td>${R(x.deposit)}</td><td><span class="st">${x.status}</span></td><td>${act(x)}</td></tr>`).join(""):'<tr><td colspan="8" style="color:#9a8589">Nenhum agendamento neste filtro</td></tr>';
   $("tb").querySelectorAll("button").forEach(b=>b.onclick=async()=>{
-  const x=bk.find(y=>y.id===b.dataset.i);
-  if(b.dataset.wa||b.dataset.s==="Agendado")window.open(waMsg(x),"_blank");
-  if(b.dataset.s){await sb.from("bookings").update({status:b.dataset.s}).eq("id",b.dataset.i);await load()}
-});
+    const x=bk.find(y=>y.id===b.dataset.i);
+    if(x&&(b.dataset.wa||b.dataset.s==="Agendado"))window.open(waMsg(x),"_blank");
+    if(b.dataset.s){await sb.from("bookings").update({status:b.dataset.s}).eq("id",b.dataset.i);await load()}
+  });
 }
 $("csv").onclick=()=>{
   const h=["Data","Hora","Cliente","WhatsApp","Serviço","Valor","Sinal","Status"];
@@ -55,7 +65,8 @@ function drawCfg(){
   $("cfg").querySelectorAll("[data-ub]").forEach(e=>e.onclick=ev=>{ev.preventDefault();S.blocked=S.blocked.filter(x=>x!==e.dataset.ub);drawCfg()});
   $("svC").onclick=async()=>{
     const closed=[];$("cfg").querySelectorAll("[data-wd]").forEach(e=>{if(!e.checked)closed.push(+e.dataset.wd)});
-    const r=await sb.from("settings").update({pix_key:$("c1").value.trim(),pix_name:$("c2").value.trim(),sinal:parseFloat($("c3").value)||0,whatsapp:$("c7").value.trim(),address:$("c8").value.trim(),maps_url:$("c9").value.trim(),
+    const r=await sb.from("settings").update({pix_key:$("c1").value.trim(),pix_name:$("c2").value.trim(),sinal:parseFloat($("c3").value)||0,
+      whatsapp:$("c7").value.trim(),address:$("c8").value.trim(),maps_url:$("c9").value.trim(),
       hours:$("c5").value.split(",").map(x=>x.trim()).filter(Boolean),closed_days:closed,blocked:S.blocked}).eq("id",1);
     let err=r.error;
     for(const s of sv){const row={name:s.name,description:s.description,price:s.price,active:s.active,sort:s.sort||0};
@@ -63,25 +74,29 @@ function drawCfg(){
     if(err)alert("Erro ao salvar: "+err.message);else{alert("Configurações salvas!");await load();drawCfg()}
   };
 }
-let gal=[];
-async function loadGal(){const{data}=await sb.from("gallery").select("*").order("created_at",{ascending:false});gal=data||[];drawGal()}
+async function loadGal(){
+  const{data}=await sb.from("gallery").select("*").order("created_at",{ascending:false});
+  gal=data||[];drawGal();
+}
 function drawGal(){
   $("gal").innerHTML=`<input type="file" id="gf" accept="image/*" multiple><button class="btn" id="gu">Enviar fotos</button>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:12px">${gal.map(g=>`<div style="position:relative"><img src="${g.url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px"><button class="btn2" data-gd="${g.id}" style="position:absolute;top:4px;right:4px;background:#fff">Excluir</button></div>`).join("")||"<small>Nenhuma foto ainda</small>"}</div>`;
   $("gu").onclick=upload;
   $("gal").querySelectorAll("[data-gd]").forEach(b=>b.onclick=async()=>{
     const g=gal.find(x=>x.id===b.dataset.gd);if(!g||!confirm("Excluir esta foto?"))return;
-    await sb.storage.from("galeria").remove([g.path]);await sb.from("gallery").delete().eq("id",g.id);await loadGal()});
+    await sb.storage.from("galeria").remove([g.path]);await sb.from("gallery").delete().eq("id",g.id);await loadGal();
+  });
 }
 function shrink(f){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,1200/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*k;c.height=i.height*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);c.toBlob(ok,"image/jpeg",.82)};i.onerror=()=>no();i.src=URL.createObjectURL(f)})}
 async function upload(){
   const fs=[...$("gf").files];if(!fs.length)return alert("Escolha as fotos");
   $("gu").disabled=true;$("gu").textContent="Enviando...";
   for(const [n,f] of fs.entries()){
-    try{const blob=await shrink(f),path=Date.now()+"-"+n+".jpg";
+    try{
+      const blob=await shrink(f),path=Date.now()+"-"+n+".jpg";
       const up=await sb.storage.from("galeria").upload(path,blob,{contentType:"image/jpeg"});
       if(up.error){alert("Erro: "+up.error.message);break}
-      await sb.from("gallery").insert({path,url:sb.storage.from("galeria").getPublicUrl(path).data.publicUrl})
+      await sb.from("gallery").insert({path,url:sb.storage.from("galeria").getPublicUrl(path).data.publicUrl});
     }catch(e){alert("Não consegui ler a foto "+f.name)}
   }
   await loadGal();
