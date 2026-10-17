@@ -6,7 +6,9 @@ async function init(){
   const [a,b]=await Promise.all([sb.from("settings").select("*").eq("id",1).single(),
     sb.from("services").select("*").eq("active",true).order("sort").order("name")]);
   S=a.data||{hours:[],closed_days:[],blocked:[],sinal:30};services=b.data||[];
-  $("dt").min=today();drawSv();drawSl();drawRs();
+    $("dt").min=today();drawSv();drawSl();drawRs();
+  const g=await sb.from("gallery").select("url").order("created_at",{ascending:false});
+  setupLinks(g.data||[]);
 }
 function drawSv(){
   $("svs").innerHTML=services.map(s=>`<div class="sv ${sel.s===s.id?"on":""}" data-s="${s.id}"><b>${s.name}</b><small>${s.description||""}</small><div class="pr">${R(s.price)}</div></div>`).join("");
@@ -38,4 +40,16 @@ $("go").onclick=async()=>{
   $("cp").onclick=()=>navigator.clipboard.writeText(S.pix_key).then(()=>$("cp").textContent="Copiado ✓");
   sel={s:null,t:null};$("nm").value=$("wp").value="";drawSv();drawSl();drawRs();$("pix").scrollIntoView({behavior:"smooth"});
 };
+function setupLinks(gal){
+  const n=(S.whatsapp||"").replace(/\D/g,"");
+  if(n){$("bw").href="https://wa.me/"+(n.length<=11?"55"+n:n)+"?text="+encodeURIComponent("Olá! Gostaria de falar sobre um agendamento.");$("bw").hidden=false}
+  const m=S.maps_url||(S.address?"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(S.address):"");
+  if(m){$("bm").href=m;$("bm").hidden=false}
+  $("bg").hidden=!gal.length;
+  $("bg").onclick=()=>{
+    $("gg").innerHTML=gal.map(x=>`<img src="${x.url}" loading="lazy">`).join("");$("gv").hidden=false;
+    $("gg").querySelectorAll("img").forEach(i=>i.onclick=()=>{const b=document.createElement("div");b.className="big";b.innerHTML=`<img src="${i.src}">`;b.onclick=()=>b.remove();document.body.appendChild(b)});
+  };
+  $("gx").onclick=()=>$("gv").hidden=true;
+}
 init();

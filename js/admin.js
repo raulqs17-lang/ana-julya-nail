@@ -11,13 +11,12 @@ let S={},sv=[],bk=[];
 sb.auth.getSession().then(({data})=>{if(data.session)start()});
 $("lg").onclick=async()=>{const{error}=await sb.auth.signInWithPassword({email:$("em").value.trim(),password:$("pw").value});error?alert("E-mail ou senha inválidos"):start()};
 $("out").onclick=async()=>{await sb.auth.signOut();location.reload()};
-async function start(){$("login").hidden=true;$("app").hidden=false;await load();drawCfg();}
-async function load(){
+async function start(){$("login").hidden=true;$("app").hidden=false;await load();drawCfg();await loadGal();}
   const[a,b,c]=await Promise.all([sb.from("settings").select("*").eq("id",1).single(),
     sb.from("services").select("*").order("sort").order("name"),
     sb.from("bookings").select("*").order("date").order("time")]);
   S=a.data;sv=b.data||[];bk=c.data||[];fill();draw();
-}
+
 function fill(){const v=$("f3").value;$("f3").innerHTML='<option value="">Todos os serviços</option>'+sv.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("");$("f3").value=v}
 ["f1","f2","f3","f4"].forEach(i=>$(i).onchange=draw);
 const filtered=()=>{const a=$("f1").value,b=$("f2").value,s=$("f3").value,t=$("f4").value;
@@ -43,6 +42,7 @@ $("csv").onclick=()=>{
 function drawCfg(){
   const dn=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"],bl=[...S.blocked].sort();
   $("cfg").innerHTML=`<small>Chave Pix</small><input id="c1" value="${esc(S.pix_key)}"><small>Nome da favorecida</small><input id="c2" value="${esc(S.pix_name)}"><small>Sinal (% do valor)</small><input id="c3" type="number" min="0" max="100" value="${S.sinal}">
+  <h2>Contato e localização</h2><small>WhatsApp (com DDD)</small><input id="c7" value="${esc(S.whatsapp)}" placeholder="19999999999"><small>Endereço</small><input id="c8" value="${esc(S.address)}"><small>Link do Google Maps (opcional)</small><input id="c9" value="${esc(S.maps_url)}" placeholder="https://maps.app.goo.gl/...">
   <h2>Serviços e preços</h2>${sv.map((s,i)=>`<div class="fl" style="margin-bottom:6px"><input data-k="name" data-i="${i}" value="${esc(s.name)}" placeholder="Nome"><input data-k="description" data-i="${i}" value="${esc(s.description)}" placeholder="Descrição"><input data-k="price" data-i="${i}" type="number" min="0" value="${s.price}"><label><input type="checkbox" style="width:auto" data-k="active" data-i="${i}" ${s.active?"checked":""}> ativo</label></div>`).join("")}<button class="btn2" id="addS">+ Novo serviço</button>
   <h2>Horários disponíveis</h2><small>Separe por vírgula. Ex.: 09:00, 10:30, 14:00</small><input id="c5" value="${esc(S.hours.join(", "))}">
   <h2>Dias em que atende</h2><div>${dn.map((d,i)=>`<label style="margin-right:12px"><input type="checkbox" style="width:auto" data-wd="${i}" ${S.closed_days.includes(i)?"":"checked"}> ${d}</label>`).join("")}</div>
@@ -55,11 +55,34 @@ function drawCfg(){
   $("cfg").querySelectorAll("[data-ub]").forEach(e=>e.onclick=ev=>{ev.preventDefault();S.blocked=S.blocked.filter(x=>x!==e.dataset.ub);drawCfg()});
   $("svC").onclick=async()=>{
     const closed=[];$("cfg").querySelectorAll("[data-wd]").forEach(e=>{if(!e.checked)closed.push(+e.dataset.wd)});
-    const r=await sb.from("settings").update({pix_key:$("c1").value.trim(),pix_name:$("c2").value.trim(),sinal:parseFloat($("c3").value)||0,
+    const r=await sb.from("settings").update({pix_key:$("c1").value.trim(),pix_name:$("c2").value.trim(),sinal:parseFloat($("c3").value)||0,whatsapp:$("c7").value.trim(),address:$("c8").value.trim(),maps_url:$("c9").value.trim(),
       hours:$("c5").value.split(",").map(x=>x.trim()).filter(Boolean),closed_days:closed,blocked:S.blocked}).eq("id",1);
     let err=r.error;
     for(const s of sv){const row={name:s.name,description:s.description,price:s.price,active:s.active,sort:s.sort||0};
       const q=s.id?sb.from("services").update(row).eq("id",s.id):sb.from("services").insert(row);const x=await q;if(x.error)err=x.error}
     if(err)alert("Erro ao salvar: "+err.message);else{alert("Configurações salvas!");await load();drawCfg()}
   };
+}
+let gal=[];
+async function loadGal(){const{data}=await sb.from("gallery").select("*").order("created_at",{ascending:false});gal=data||[];drawGal()}
+function drawGal(){
+  $("gal").innerHTML=`<input type="file" id="gf" accept="image/*" multiple><button class="btn" id="gu">Enviar fotos</button>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:12px">${gal.map(g=>`<div style="position:relative"><img src="${g.url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px"><button class="btn2" data-gd="${g.id}" style="position:absolute;top:4px;right:4px;background:#fff">Excluir</button></div>`).join("")||"<small>Nenhuma foto ainda</small>"}</div>`;
+  $("gu").onclick=upload;
+  $("gal").querySelectorAll("[data-gd]").forEach(b=>b.onclick=async()=>{
+    const g=gal.find(x=>x.id===b.dataset.gd);if(!g||!confirm("Excluir esta foto?"))return;
+    await sb.storage.from("galeria").remove([g.path]);await sb.from("gallery").delete().eq("id",g.id);await loadGal()});
+}
+function shrink(f){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,1200/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*k;c.height=i.height*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);c.toBlob(ok,"image/jpeg",.82)};i.onerror=()=>no();i.src=URL.createObjectURL(f)})}
+async function upload(){
+  const fs=[...$("gf").files];if(!fs.length)return alert("Escolha as fotos");
+  $("gu").disabled=true;$("gu").textContent="Enviando...";
+  for(const [n,f] of fs.entries()){
+    try{const blob=await shrink(f),path=Date.now()+"-"+n+".jpg";
+      const up=await sb.storage.from("galeria").upload(path,blob,{contentType:"image/jpeg"});
+      if(up.error){alert("Erro: "+up.error.message);break}
+      await sb.from("gallery").insert({path,url:sb.storage.from("galeria").getPublicUrl(path).data.publicUrl})
+    }catch(e){alert("Não consegui ler a foto "+f.name)}
+  }
+  await loadGal();
 }

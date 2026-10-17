@@ -52,3 +52,20 @@ create policy "admin" on settings for all to authenticated using (true) with che
 create policy "admin" on services for all to authenticated using (true) with check (true);
 create policy "cliente agenda" on bookings for insert to anon,authenticated with check (true);
 create policy "admin" on bookings for all to authenticated using (true) with check (true);
+alter table settings
+  add column whatsapp text default '',
+  add column address text default '',
+  add column maps_url text default '';
+
+create table gallery(
+  id uuid primary key default gen_random_uuid(),
+  path text not null, url text not null,
+  created_at timestamptz default now());
+alter table gallery enable row level security;
+create policy "publico le" on gallery for select using (true);
+create policy "admin" on gallery for all to authenticated using (true) with check (true);
+
+insert into storage.buckets(id,name,public) values('galeria','galeria',true) on conflict do nothing;
+create policy "galeria leitura" on storage.objects for select using (bucket_id='galeria');
+create policy "galeria envio" on storage.objects for insert to authenticated with check (bucket_id='galeria');
+create policy "galeria exclusao" on storage.objects for delete to authenticated using (bucket_id='galeria');
