@@ -2,6 +2,11 @@ const sb=supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY);
 const $=i=>document.getElementById(i),R=v=>"R$ "+Number(v).toFixed(2).replace(".",",");
 const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 const fd=d=>d.split("-").reverse().join("/");
+function waMsg(x){
+  const m=`❕ Resumo de seu agendamento:\n\n📅 Data: ${fd(x.date)}\n🕗 Hora: ${x.time}\n🛠️ Serviço: ${x.service_name}\n👤 Profissional: Ana Julya Duarte\n💰 Valor: ${R(x.price)}`;
+  let n=x.phone.replace(/\D/g,"");if(n.length<=11)n="55"+n;
+  return "https://wa.me/"+n+"?text="+encodeURIComponent(m);
+}
 let S={},sv=[],bk=[];
 sb.auth.getSession().then(({data})=>{if(data.session)start()});
 $("lg").onclick=async()=>{const{error}=await sb.auth.signInWithPassword({email:$("em").value.trim(),password:$("pw").value});error?alert("E-mail ou senha inválidos"):start()};
@@ -22,9 +27,13 @@ function draw(){
   const rec=l.filter(x=>x.status==="Realizado"),pago=l.filter(x=>["Agendado","Realizado"].includes(x.status)),ag=l.filter(x=>x.status==="Agendado");
   $("ks").innerHTML=[["Ganhos realizados",R(sum(rec))],["Sinais recebidos",R(dep(pago))],["A receber (agendados)",R(sum(ag))],["Atendimentos feitos",rec.length],["Agendamentos ativos",l.filter(x=>["Aguardando sinal","Agendado"].includes(x.status)).length]].map(k=>`<div class="k"><span>${k[0]}</span><div>${k[1]}</div></div>`).join("");
   const act=x=>{const b=(s,t)=>`<button class="btn2" data-i="${x.id}" data-s="${s}">${t}</button> `;
-    return x.status==="Aguardando sinal"?b("Agendado","Sinal pago")+b("Cancelado","Cancelar"):x.status==="Agendado"?b("Realizado","Realizado")+b("Cancelado","Cancelar"):""};
+    return x.status==="Aguardando sinal"?b("Agendado","Sinal pago")+b("Cancelado","Cancelar"):x.status==="Agendado"?`<button class="btn2" data-i="${x.id}" data-wa="1">WhatsApp</button> `+b("Realizado","Realizado")+b("Cancelado","Cancelar"):""};
   $("tb").innerHTML=l.length?l.map(x=>`<tr><td>${fd(x.date)}</td><td>${x.time}</td><td>${esc(x.client_name)}<br><small><a href="https://wa.me/55${x.phone.replace(/\D/g,"")}" target="_blank" style="color:inherit">${esc(x.phone)}</a></small></td><td>${esc(x.service_name)}</td><td>${R(x.price)}</td><td>${R(x.deposit)}</td><td><span class="st">${x.status}</span></td><td>${act(x)}</td></tr>`).join(""):'<tr><td colspan="8" style="color:#9a8589">Nenhum agendamento neste filtro</td></tr>';
-  $("tb").querySelectorAll("button").forEach(b=>b.onclick=async()=>{await sb.from("bookings").update({status:b.dataset.s}).eq("id",b.dataset.i);await load()});
+  $("tb").querySelectorAll("button").forEach(b=>b.onclick=async()=>{
+  const x=bk.find(y=>y.id===b.dataset.i);
+  if(b.dataset.wa||b.dataset.s==="Agendado")window.open(waMsg(x),"_blank");
+  if(b.dataset.s){await sb.from("bookings").update({status:b.dataset.s}).eq("id",b.dataset.i);await load()}
+});
 }
 $("csv").onclick=()=>{
   const h=["Data","Hora","Cliente","WhatsApp","Serviço","Valor","Sinal","Status"];
